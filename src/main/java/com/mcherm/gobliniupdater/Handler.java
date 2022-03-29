@@ -58,10 +58,12 @@ public class Handler implements RequestHandler<ScheduledEvent, String>{
 
                 //DID i MENTION THAT I OFFICIALLY GIVE UP ON ATTRIBUTES????
                 Map<String, MessageAttributeValue> attributes = message.getMessageAttributes();
-                logger.log ("message attributes " + attributes);
-    //            Map<String, String> att = message.getAttributes();
-    //            logger.log ("stringtostring " +att);
-    //            MessageAttributeValue value = attributes.get("guesserType");
+                String guesserTypeAttr = attributes.get("guesserType").getStringValue();
+                String updateTypeAttr = attributes.get("updateType").getStringValue();
+                logger.log(
+                    "Attributes on this message: guesserType='" + guesserTypeAttr +
+                    "'; updateType ='" + updateTypeAttr + "'."
+                );
 
                 Gson gson = new Gson();
                 UpdaterData update = gson.fromJson(body, UpdaterData.class);
