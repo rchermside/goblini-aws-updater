@@ -6,16 +6,16 @@ import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.lambda.runtime.events.ScheduledEvent;
 import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
-import com.amazonaws.AmazonServiceException;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 
-import java.io.File;
-
-import com.amazonaws.services.sqs.model.*;
+import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
+import com.amazonaws.services.sqs.model.ReceiveMessageResult;
+import com.amazonaws.services.sqs.model.Message;
+import com.amazonaws.services.sqs.model.MessageAttributeValue;
+import com.amazonaws.services.sqs.model.DeleteMessageResult;
 
 import java.io.InputStreamReader;
 import java.util.List;
@@ -44,10 +44,7 @@ public class Handler implements RequestHandler<ScheduledEvent, String>{
         // log execution details
         // process event
         logger.log("The handler that Rachel wrote is running.");
-        // I officialy give up on retrieving attributes, I can see the attributes in the queue I can't seem
-        //fetch them
         ReceiveMessageRequest request = new ReceiveMessageRequest(queueUrl).withMessageAttributeNames("guesserType","updateType").withMaxNumberOfMessages(10);
-        //ReceiveMessageRequest request = new ReceiveMessageRequest(queueUrl);
         ReceiveMessageResult result = sqs.receiveMessage(request);
 
         List<Message> messages = result.getMessages();
@@ -56,23 +53,36 @@ public class Handler implements RequestHandler<ScheduledEvent, String>{
                 logger.log ("Message" + message);
                 String body= message.getBody();
 
-                //DID i MENTION THAT I OFFICIALLY GIVE UP ON ATTRIBUTES????
                 Map<String, MessageAttributeValue> attributes = message.getMessageAttributes();
                 String guesserTypeAttr = attributes.get("guesserType").getStringValue();
                 String updateTypeAttr = attributes.get("updateType").getStringValue();
-                logger.log(
+                logger.log( // FIXME: Remove this
                     "Attributes on this message: guesserType='" + guesserTypeAttr +
                     "'; updateType ='" + updateTypeAttr + "'."
                 );
 
-                Gson gson = new Gson();
-                UpdaterData update = gson.fromJson(body, UpdaterData.class);
-                String guesserType = update.guesserType;
-                DeleteMessageResult deleteResult =sqs.deleteMessage(queueUrl, message.getReceiptHandle());
-                logger.log ("sdkresponse:" +deleteResult.getSdkResponseMetadata().getRequestId());
-                logger.log ("delete http status code:" + deleteResult.getSdkHttpMetadata().getHttpStatusCode());
-                GuesserData guesser= getGuesser(guesserType, logger);
-                processUpdate(guesser, update, logger);
+                boolean processedSuccessfully;
+                if (updateTypeAttr.equals("RESPONSES")) {
+                    // Read the message
+                    Gson gson = new Gson();
+                    UpdaterData update = gson.fromJson(body, UpdaterData.class);
+                    String guesserType = update.guesserType;
+                    GuesserData guesser = getGuesser(guesserType, logger);
+
+                    // Perform the update
+                    processUpdate(guesser, update, logger);
+                    processedSuccessfully = true;
+                } else {
+                    logger.log("ERROR: updateTypeAttr of '" + updateTypeAttr + "' is not supported. Ignoring this update.");
+                    processedSuccessfully = false;
+                }
+
+                // After successfully processing this update, go ahead and delete it from SQS
+                if (processedSuccessfully) {
+                    DeleteMessageResult deleteResult = sqs.deleteMessage(queueUrl, message.getReceiptHandle());
+                    logger.log ("sdkresponse:" +deleteResult.getSdkResponseMetadata().getRequestId());
+                    logger.log ("delete http status code:" + deleteResult.getSdkHttpMetadata().getHttpStatusCode());
+                }
             }
             logger.log ("rechecking queue");
             result = sqs.receiveMessage(request);
