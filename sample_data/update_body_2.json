@@ -1,0 +1,89 @@
+{
+  "guesserType": "animal",
+  "responseHistory": [
+    {
+      "a": "NO",
+      "g": "shark",
+      "gID": 51,
+      "q": "",
+      "qID": 28
+    },
+    {
+      "a": "NO",
+      "g": "shark",
+      "gID": 51,
+      "q": "",
+      "qID": 51
+    },
+    {
+      "a": "YES",
+      "g": "shark",
+      "gID": 51,
+      "q": "",
+      "qID": 29
+    },
+    {
+      "a": "NO",
+      "g": "shark",
+      "gID": 51,
+      "q": "",
+      "qID": 48
+    },
+    {
+      "a": "YES",
+      "g": "shark",
+      "gID": 51,
+      "q": "",
+      "qID": 30
+    },
+    {
+      "a": "YES",
+      "g": "shark",
+      "gID": 51,
+      "q": "",
+      "qID": 38
+    },
+    {
+      "a": "NO",
+      "g": "shark",
+      "gID": 51,
+      "q": "",
+      "qID": 33
+    },
+    {
+      "a": "NO",
+      "g": "shark",
+      "gID": 51,
+      "q": "",
+      "qID": 37
+    },
+    {
+      "a": "NO",
+      "g": "shark",
+      "gID": 51,
+      "q": "",
+      "qID": 46
+    },
+    {
+      "a": "NO",
+      "g": "shark",
+      "gID": 51,
+      "q": "",
+      "qID": 60
+    },
+    {
+      "a": "NO",
+      "g": "shark",
+      "gID": 51,
+      "q": "",
+      "qID": 109
+    },
+    {
+      "a": "NO",
+      "g": "shark",
+      "gID": 51,
+      "q": "",
+      "qID": 2
+    }
+  ]
+}

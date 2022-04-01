@@ -15,9 +15,10 @@ public class StructuredDataUpdateTest {
 
     @Test
     void emptyFile() {
-        String inputJson = "{'version':1,'questions':[],'guesses':[],'answers':[]}";
+        String inputJson = "{'version':1,'guesserType':'animal','questions':[],'guesses':[],'answers':[]}";
         StructuredDataUpdate bind = gson.fromJson(inputJson, StructuredDataUpdate.class);
         Assertions.assertEquals(1, bind.version);
+        Assertions.assertEquals("animal", bind.guesserType);
         Assertions.assertEquals(0, bind.questions.size());
         Assertions.assertEquals(0, bind.guesses.size());
         Assertions.assertEquals(0, bind.answers.size());
@@ -26,7 +27,7 @@ public class StructuredDataUpdateTest {
     @Test
     void oneOfEach() {
         String inputJson =
-                "{'version':1,'questions':[" +
+                "{'version':1,'guesserType':'animal','questions':[" +
                 "{'qID':3,'question':'Does it have hair?','verified':true}" +
                 "],'guesses':[" +
                 "{'gID':4,'guess':'dog','verified':false}" +
@@ -35,6 +36,7 @@ public class StructuredDataUpdateTest {
                 "]}";
         StructuredDataUpdate bind = gson.fromJson(inputJson, StructuredDataUpdate.class);
         Assertions.assertEquals(1, bind.version);
+        Assertions.assertEquals("animal", bind.guesserType);
         Assertions.assertEquals(1, bind.questions.size());
         Assertions.assertEquals(3, bind.questions.get(0).qID);
         Assertions.assertEquals("Does it have hair?", bind.questions.get(0).question);

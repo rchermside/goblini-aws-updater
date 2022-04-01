@@ -1,0 +1,54 @@
+{
+  "guesserType": "animal",
+  "responseHistory": [
+    {
+      "a": "NO",
+      "g": "shark",
+      "gID": 51,
+      "q": "Do humans eat this?",
+      "qID": -1
+    },
+    {
+      "a": "NO",
+      "g": "star fish",
+      "gID": 89,
+      "q": "Do humans eat this?",
+      "qID": -1
+    },
+    {
+      "a": "YES",
+      "g": "salmon",
+      "gID": 106,
+      "q": "Do humans eat this?",
+      "qID": -1
+    },
+    {
+      "a": "NO",
+      "g": "kiki!!",
+      "gID": 33,
+      "q": "Do humans eat this?",
+      "qID": -1
+    },
+    {
+      "a": "NO",
+      "g": "elephant",
+      "gID": 22,
+      "q": "Do humans eat this?",
+      "qID": -1
+    },
+    {
+      "a": "NO",
+      "g": "scorpion",
+      "gID": 88,
+      "q": "Do humans eat this?",
+      "qID": -1
+    },
+    {
+      "a": "NO",
+      "g": "human",
+      "gID": 30,
+      "q": "Do humans eat this?",
+      "qID": -1
+    }
+  ]
+}

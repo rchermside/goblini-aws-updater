@@ -8,8 +8,10 @@ import java.util.List;
  *
  * <pre>
  * STRUCTURED_DATA_UPDATE is a JSON format used for sending updates. It always consists
- * of a JSON object with four fields:
+ * of a JSON object with five fields:
  *   "version" - if using this documentation, this field always has the value 1.
+ *   "guesserType" - this field always contains a JSON string with the identifier of a particular
+ *           guesser to be updated.
  *   "questions" - this field always contains a JSON list of zero or more question updates.
  *       question update: this is a JSON object which has 3 possible fields. No two entries will have
  *               the same qID.
@@ -45,9 +47,9 @@ import java.util.List;
  *               in the "questions" list above. This field will always be present.
  *           "gID" - this is the gID of a guess. If negative, it must match a negative gID used
  *               in the "guesses" list above. This field will always be present.
- *           "counts" - this contains a JSON list of three integers: the new values for the counts of
- *               "yes", "no", and "maybe" responses (in that order). Either this field or the "increments"
- *               field will be present, but not both.
+ *           "counts" - this contains a JSON list of three non-negative integers: the new values for the
+ *               counts of "yes", "no", and "maybe" responses (in that order). Either this field or the
+ *               "increments" field will be present, but not both.
  *           "increments" - this contains a JSON list of three non-negative integers: the amounts to add
  *               to the current counts of "yes", "no", and "maybe" responses (in that order). Either
  *               this field or the "counts" field will be present, but not both.
@@ -55,6 +57,7 @@ import java.util.List;
  */
 public class StructuredDataUpdate {
     public int version;
+    public String guesserType;
     public List<QuestionUpdate> questions;
     public List<GuessUpdate> guesses;
     public List<AnswerUpdate> answers;
@@ -64,7 +67,7 @@ public class StructuredDataUpdate {
      * Bind object for a question update.
      */
     public static class QuestionUpdate {
-        public int qID;
+        public short qID;
         public String question;
         public Boolean verified;
     }
@@ -73,7 +76,7 @@ public class StructuredDataUpdate {
      * Bind object for a question update.
      */
     public static class GuessUpdate {
-        public int gID;
+        public short gID;
         public String guess;
         public Boolean verified;
     }
@@ -82,8 +85,8 @@ public class StructuredDataUpdate {
      * Bind object for a question update.
      */
     public static class AnswerUpdate {
-        public int qID;
-        public int gID;
+        public short qID;
+        public short gID;
         public List<Integer> counts;
         public List<Integer> increments;
     }

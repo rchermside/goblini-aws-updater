@@ -21,6 +21,8 @@ import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.TreeMap;
+
 import com.google.gson.Gson;
 
 
@@ -47,6 +49,7 @@ public class Handler implements RequestHandler<ScheduledEvent, String>{
         ReceiveMessageRequest request = new ReceiveMessageRequest(queueUrl).withMessageAttributeNames("guesserType","updateType").withMaxNumberOfMessages(10);
         ReceiveMessageResult result = sqs.receiveMessage(request);
 
+        Gson gson = new Gson();
         List<Message> messages = result.getMessages();
         while (messages.size() >0){
             for (Message message: messages){
@@ -56,7 +59,7 @@ public class Handler implements RequestHandler<ScheduledEvent, String>{
                 Map<String, MessageAttributeValue> attributes = message.getMessageAttributes();
                 String guesserTypeAttr = attributes.get("guesserType").getStringValue();
                 String updateTypeAttr = attributes.get("updateType").getStringValue();
-                logger.log( // FIXME: Remove this
+                logger.log(
                     "Attributes on this message: guesserType='" + guesserTypeAttr +
                     "'; updateType ='" + updateTypeAttr + "'."
                 );
@@ -64,7 +67,6 @@ public class Handler implements RequestHandler<ScheduledEvent, String>{
                 boolean processedSuccessfully;
                 if (updateTypeAttr.equals("RESPONSES")) {
                     // Read the message
-                    Gson gson = new Gson();
                     UpdaterData update = gson.fromJson(body, UpdaterData.class);
                     String guesserType = update.guesserType;
                     GuesserData guesser = getGuesser(guesserType, logger);
@@ -72,17 +74,33 @@ public class Handler implements RequestHandler<ScheduledEvent, String>{
                     // Perform the update
                     processUpdate(guesser, update, logger);
                     processedSuccessfully = true;
+                } else if (updateTypeAttr.equals("STRUCTURED_DATA_UPDATE")) {
+                    // Read the message
+                    StructuredDataUpdate update = gson.fromJson(body, StructuredDataUpdate.class);
+                    String guesserType = guesserTypeAttr;
+                    GuesserData guesser = getGuesser(guesserType, logger);
+
+                    // Perform the update
+                    try {
+                        processUpdate(guesser, update, logger);
+                        processedSuccessfully = true;
+                    } catch(InvalidStructuredUpdate err) {
+                        logger.log("Error processing update: " + err);
+                        processedSuccessfully = false;
+                    }
                 } else {
                     logger.log("ERROR: updateTypeAttr of '" + updateTypeAttr + "' is not supported. Ignoring this update.");
                     processedSuccessfully = false;
                 }
 
-                // After successfully processing this update, go ahead and delete it from SQS
-                if (processedSuccessfully) {
-                    DeleteMessageResult deleteResult = sqs.deleteMessage(queueUrl, message.getReceiptHandle());
-                    logger.log ("sdkresponse:" +deleteResult.getSdkResponseMetadata().getRequestId());
-                    logger.log ("delete http status code:" + deleteResult.getSdkHttpMetadata().getHttpStatusCode());
+                if (!processedSuccessfully) {
+                    logger.log("Error" + body);
                 }
+
+                // Whether successfully processed or not, go ahead and delete it from SQS
+                DeleteMessageResult deleteResult = sqs.deleteMessage(queueUrl, message.getReceiptHandle());
+                logger.log ("sdkresponse:" +deleteResult.getSdkResponseMetadata().getRequestId());
+                logger.log ("delete http status code:" + deleteResult.getSdkHttpMetadata().getHttpStatusCode());
             }
             logger.log ("rechecking queue");
             result = sqs.receiveMessage(request);
@@ -90,6 +108,7 @@ public class Handler implements RequestHandler<ScheduledEvent, String>{
         }
         //write updated models each to its own file
         for (String guesserType: guessers.keySet()){
+            logger.log("Saving updates to guesser '" + guesserType + "'.");
             writeFile(guesserType,logger, guessers.get(guesserType));
         }
         return response;
@@ -146,6 +165,157 @@ public class Handler implements RequestHandler<ScheduledEvent, String>{
         }
     }
 
+
+    /**
+     * This applies a set of updates to a guesser. If assumptions are violated, it raises a
+     * InvalidStructuredUpdate exception.
+     *
+     * @param guesser the guesser to be updated
+     * @param update the update to apply
+     * @param logger a logger to write to for debugging
+     * @throws InvalidStructuredUpdate
+     */
+    void processUpdate(GuesserData guesser, StructuredDataUpdate update, LambdaLogger logger)
+        throws InvalidStructuredUpdate
+    {
+        final Gson gson = new Gson();
+
+        // --- Verify top-level stuff ---
+        if (update.version != 1) {
+            throw new InvalidStructuredUpdate("Update version number must be 1.");
+        }
+
+        // --- Variables to store the true IDs of new questions and guesses ---
+        final Map<Short,Short> newQuestionIds = new TreeMap<>(); // map from negative-placeholder to true id
+        final Map<Short,Short> newGuessIds = new TreeMap<>(); // map from negative-placeholder to true id
+
+        // --- Process the questions ---
+        for (final StructuredDataUpdate.QuestionUpdate questionUpdate: update.questions) {
+            logger.log("Applying update: " + gson.toJson(questionUpdate));
+            if (questionUpdate.qID < 0) {
+                // --- New Question ---
+                final short newQuestionId = (short) guesser.questions.size();
+                newQuestionIds.put(questionUpdate.qID, newQuestionId);
+                if (questionUpdate.question == null) {
+                    throw new InvalidStructuredUpdate("New question must have question text.");
+                }
+                final Question newQuestion = new Question(questionUpdate.question);
+                if (questionUpdate.verified != null) {
+                    newQuestion.verified = questionUpdate.verified;
+                }
+                guesser.questions.add(newQuestion);
+            } else {
+                // --- Updated Question ---
+                if (questionUpdate.qID >= guesser.questions.size()) {
+                    throw new InvalidStructuredUpdate("Question ID " + questionUpdate.qID + " does not exist.");
+                }
+                final Question question = guesser.questions.get(questionUpdate.qID);
+                if (questionUpdate.question != null) {
+                    question.question = questionUpdate.question;
+                }
+                if (questionUpdate.verified != null) {
+                    question.verified = questionUpdate.verified;
+                }
+            }
+        }
+
+        // --- Process the guesses ---
+        for (final StructuredDataUpdate.GuessUpdate guessUpdate: update.guesses) {
+            logger.log("Applying update: " + gson.toJson(guessUpdate));
+            if (guessUpdate.gID < 0) {
+                // --- New Guess ---
+                final short newGuessId = (short) guesser.guessArray.size();
+                newGuessIds.put(guessUpdate.gID, newGuessId);
+                if (guessUpdate.guess == null) {
+                    throw new InvalidStructuredUpdate("New guess must have guess text.");
+                }
+                final Guess newGuess = new Guess(newGuessId, guessUpdate.guess);
+                if (guessUpdate.verified != null) {
+                    newGuess.verified = guessUpdate.verified;
+                }
+                guesser.guessArray.add(newGuess);
+            } else {
+                // --- Updated Guess ---
+                if (guessUpdate.gID >= guesser.guessArray.size()) {
+                    throw new InvalidStructuredUpdate("Guess ID " + guessUpdate.gID + " does not exist.");
+                }
+                final Guess guess = guesser.guessArray.get(guessUpdate.gID);
+                if (guessUpdate.guess != null) {
+                    guess.name = guessUpdate.guess;
+                }
+                if (guessUpdate.verified != null) {
+                    guess.verified = guessUpdate.verified;
+                }
+            }
+        }
+
+        // --- Process the Answers ---
+        for (final StructuredDataUpdate.AnswerUpdate answerUpdate: update.answers) {
+            logger.log("Applying update: " + gson.toJson(answerUpdate));
+
+            // --- Find the qID ---
+            if (answerUpdate.qID >= guesser.questions.size()) {
+                throw new InvalidStructuredUpdate("Answer has qID " + answerUpdate.qID + " that does not exist.");
+            }
+            final short qID;
+            if (answerUpdate.qID < 0) {
+                if (!newQuestionIds.containsKey(answerUpdate.qID)) {
+                    throw new InvalidStructuredUpdate("Answer has qID " + answerUpdate.qID + " which was undefined.");
+                }
+                qID = newQuestionIds.get(answerUpdate.qID);
+            } else {
+                qID = answerUpdate.qID;
+            }
+
+            // --- Find the gID ---
+            if (answerUpdate.gID >= guesser.guessArray.size()) {
+                throw new InvalidStructuredUpdate("Answer has gID " + answerUpdate.gID + " that does not exist.");
+            }
+            final short gID;
+            if (answerUpdate.gID < 0) {
+                if (!newGuessIds.containsKey(answerUpdate.gID)) {
+                    throw new InvalidStructuredUpdate("Answer has gID " + answerUpdate.gID + " which was undefined.");
+                }
+                gID = newGuessIds.get(answerUpdate.gID);
+            } else {
+                gID = answerUpdate.gID;
+            }
+
+            // --- Determine new counts of yeses, nos, and responses ---
+            final int newNumYeses;
+            final int newNumNos;
+            final int newNumResponses;
+            final Question question = guesser.questions.get(qID);
+            if (answerUpdate.counts != null) {
+                if (answerUpdate.counts.size() != 3) {
+                    throw new InvalidStructuredUpdate("Answer has counts that isn't 3 items long.");
+                }
+                newNumYeses = answerUpdate.counts.get(0);
+                newNumNos = answerUpdate.counts.get(1);
+                newNumResponses = newNumYeses + newNumNos + answerUpdate.counts.get(2);
+            } else {
+                if (answerUpdate.increments == null) {
+                    throw new InvalidStructuredUpdate("Answer must have counts or increments.");
+                }
+                if (answerUpdate.increments.size() != 3) {
+                    throw new InvalidStructuredUpdate("Answer has increments that isn't 3 items long.");
+                }
+                final int oldNumYeses = question.numYeses.getOrDefault(gID, 0);
+                final int oldNumNos = question.numNos.getOrDefault(gID, 0);
+                final int oldNumResponses = question.numResponses.getOrDefault(gID, 0);
+                final int incrYeses = answerUpdate.increments.get(0);
+                final int incrNos = answerUpdate.increments.get(1);
+                final int incrResponses = incrYeses + incrNos + answerUpdate.increments.get(2);
+                newNumYeses = oldNumYeses + incrYeses;
+                newNumNos = oldNumNos + incrNos;
+                newNumResponses = oldNumResponses + incrResponses;
+            }
+
+            // --- Set new counts ---
+            question.setGuessCounts(gID, newNumYeses, newNumNos, newNumResponses);
+        }
+    }
+
     GuesserData getGuesser(String guesserType, LambdaLogger logger){
         GuesserData guesser = guessers.get(guesserType);
         if (guesser == null){
@@ -179,6 +349,14 @@ public class Handler implements RequestHandler<ScheduledEvent, String>{
         }catch  (Exception err){
             logger.log(err.toString());
             throw err;
+        }
+    }
+
+
+    /** An exception thrown if the structured update was invalid. */
+    private static class InvalidStructuredUpdate extends Exception {
+        public InvalidStructuredUpdate(String msg) {
+            super(msg);
         }
     }
 }

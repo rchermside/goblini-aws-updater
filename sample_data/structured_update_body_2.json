@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "guesserType": "animal",
+  "questions": [
+    {
+      "qID": 10,
+      "question": "Is this animal your pet?"
+    },
+    {
+      "qID": -1,
+      "question": "Is your animal either stripped or spotted?"
+    }
+  ],
+  "guesses": [
+    {
+      "gID": -2,
+      "guess": "spotted lanternfly"
+    }
+  ],
+  "answers": [
+    {
+      "qID": -1,
+      "gID": -2,
+      "increments": [3,0,0]
+    }
+  ]
+}
