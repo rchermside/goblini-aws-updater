@@ -152,9 +152,9 @@ public class Question{
      * @param guessId
      */
     private void updateGuessesSets(Short guessId) {
-        final int yeses = numYeses.get(guessId);
-        final int nos = numNos.get(guessId);
-        final int responses = numResponses.get(guessId);
+        final int yeses = numYeses.getOrDefault(guessId, 0);
+        final int nos = numNos.getOrDefault(guessId, 0);
+        final int responses = numResponses.getOrDefault(guessId, 0);
 
         float yesPercent = yeses / responses * 100;
         float noPercent = nos / responses * 100;
