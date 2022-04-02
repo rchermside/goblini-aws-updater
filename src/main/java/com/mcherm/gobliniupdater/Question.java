@@ -149,28 +149,30 @@ public class Question{
      * Call this when the counts for a specific guess have been updated in order
      * to update the guess sets.
      *
-     * @param guessId
+     * @param guessId the guess for which sets should be updated
      */
-    private void updateGuessesSets(Short guessId) {
+    protected void updateGuessesSets(Short guessId) {
         final int yeses = numYeses.getOrDefault(guessId, 0);
         final int nos = numNos.getOrDefault(guessId, 0);
         final int responses = numResponses.getOrDefault(guessId, 0);
 
-        float yesPercent = yeses / responses * 100;
-        float noPercent = nos / responses * 100;
+        if (responses > 0) {
+            float yesPercent = ((float) yeses / (float) responses) * 100;
+            float noPercent = ((float) nos / (float) responses) * 100;
 
-        if (yesPercent > GOOD_PERCENT){
-            yesGuesses.add(guessId);
-            noGuesses.remove(guessId);
-            maybeGuesses.remove(guessId);
-        } else if (noPercent > GOOD_PERCENT){
-            noGuesses.add(guessId);
-            yesGuesses.remove(guessId);
-            maybeGuesses.remove(guessId);
-        } else {
-            maybeGuesses.add(guessId);
-            noGuesses.remove(guessId);
-            yesGuesses.remove(guessId);
+            if (yesPercent > GOOD_PERCENT){
+                yesGuesses.add(guessId);
+                noGuesses.remove(guessId);
+                maybeGuesses.remove(guessId);
+            } else if (noPercent > GOOD_PERCENT){
+                noGuesses.add(guessId);
+                yesGuesses.remove(guessId);
+                maybeGuesses.remove(guessId);
+            } else {
+                maybeGuesses.add(guessId);
+                noGuesses.remove(guessId);
+                yesGuesses.remove(guessId);
+            }
         }
     }
 
